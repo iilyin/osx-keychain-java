@@ -266,6 +266,44 @@ public class OSXKeychain {
 	{
 		_deleteGenericPassword(serviceName, accountName);
 	}
+    
+    /** Creates keychain with given path and password
+     *
+     *	@param	keychainPath		    Path to keychain file
+     *	@param	keychainPassword		Keychain password
+     *	@throws OSXKeychainException	If an error occurs when communicating
+     *									with the OS X keychain.
+     */
+    public boolean createKeychain(String keychainPath, String keychainPassword)
+    {
+        return _createKeychain(keychainPath, keychainPassword);
+    }
+    
+    /** Deletes keychain with given path
+     *
+     *	@param	keychainPath		    Path to keychain file
+     *	@throws OSXKeychainException	If an error occurs when communicating
+     *									with the OS X keychain.
+     */
+    public boolean deleteKeychain(String keychainPath)
+    {
+        return _deleteKeychain(keychainPath);
+    }
+
+    /** Imports item to keychain
+     *
+     *	@param	keychainPath		    Path to keychain file
+     *	@param	itemPath		        Path to item to import
+     *	@param	keychainPassword		Keychain password
+     *	@param	itemPassword		    Item password
+     *	@throws OSXKeychainException	If an error occurs when communicating
+     *									with the OS X keychain.
+     */
+    public boolean importItemToKeychain(String keychainPath, String itemPath, String keychainPassword, String itemPassword)
+    {
+        return _importItemToKeychain(keychainPath, itemPath, keychainPassword, itemPassword);
+    }
+
 
 	/* ************************* */
 	/* JNI stuff from here down. */
@@ -376,7 +414,42 @@ public class OSXKeychain {
 	private native void _deleteGenericPassword(String serviceName, String accountName)
 	throws OSXKeychainException;
 
-	/** Load the shared object which contains the implementations for the native
+    /** See Java_com_mcdermottroe_apple_OSXKeychain__1createKeychain for
+     *	the implementation of this and use {@link #createKeychain(String,
+     *	String)} to call this.
+     *
+     *	@param	keychainPath		    Path to keychain file
+     *	@param	keychainPassword		Keychain password
+     *	@throws OSXKeychainException	If an error occurs when communicating
+     *									with the OS X keychain.
+     */
+    private native boolean _createKeychain(String keychainPath, String keychainPassword);
+
+    /** See Java_com_mcdermottroe_apple_OSXKeychain__1deleteKeychain for
+     *	the implementation of this and use {@link #createKeychain(String,
+     *	String)} to call this.
+     *
+     *	@param	keychainPath		    Path to keychain file
+     *	@throws OSXKeychainException	If an error occurs when communicating
+     *									with the OS X keychain.
+     */
+    private native boolean _deleteKeychain(String keychainPath);
+
+    /** See Java_com_mcdermottroe_apple_OSXKeychain__1importItemToKeychain for
+     *	the implementation of this and use {@link #createKeychain(String,
+     *	String)} to call this.
+     *
+     *	@param	keychainPath		    Path to keychain file
+     *	@param	itemPath		        Path to item to import
+     *	@param	keychainPassword		Keychain password
+     *	@param	itemPassword		    Item password
+     *	@throws OSXKeychainException	If an error occurs when communicating
+     *									with the OS X keychain.
+     */
+    private native boolean _importItemToKeychain(String keychainPath, String itemPath, String keychainPassword, String itemPassword);
+    
+    
+    /** Load the shared object which contains the implementations for the native
 	 *	methods in this class.
 	 *
 	 *	@throws	IOException	If the shared object could not be loaded.

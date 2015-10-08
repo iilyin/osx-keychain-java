@@ -29,6 +29,7 @@
 #include "com_mcdermottroe_apple_OSXKeychain.h"
 #include <string.h>
 #include <strings.h>
+#include <stdio.h>
 
 #define OSXKeychainException "com/mcdermottroe/apple/OSXKeychainException"
 
@@ -48,13 +49,13 @@ typedef struct {
  *	message			The message to pass to the Exception.
  */
 void throw_exception(JNIEnv* env, const char* exceptionClass, const char* message) {
-	jclass cls = (*env)->FindClass(env, exceptionClass);
+	jclass cls = env->FindClass(exceptionClass);
 	/* if cls is NULL, an exception has already been thrown */
 	if (cls != NULL) {
-		(*env)->ThrowNew(env, cls, message);
+		env->ThrowNew(cls, message);
 	}
 	/* free the local ref, utility funcs must delete local refs. */
-	(*env)->DeleteLocalRef(env, cls);
+	env->DeleteLocalRef(cls);
 }
 
 /* Shorthand for throwing an OSXKeychainException from an OSStatus.
@@ -91,13 +92,13 @@ void jstring_unpack(JNIEnv* env, jstring js, jstring_unpacked* ret) {
 	}
 
 	/* Get the length of the string. */
-	ret->len = (int)((*env)->GetStringUTFLength(env, js));
+	ret->len = (int)(env->GetStringUTFLength(js));
 	if (ret->len <= 0) {
 		ret->len = 0;
 		ret->str = NULL;
 		return;
 	}
-	ret->str = (*env)->GetStringUTFChars(env, js, NULL);
+	ret->str = env->GetStringUTFChars(js, NULL);
 }
 
 /* Clean up a jstring_unpacked after it's no longer needed.
@@ -107,7 +108,7 @@ void jstring_unpack(JNIEnv* env, jstring js, jstring_unpacked* ret) {
  */
 void jstring_unpacked_free(JNIEnv *env, jstring js, jstring_unpacked* jsu) {
 	if (jsu != NULL && jsu->str != NULL) {
-		(*env)->ReleaseStringUTFChars(env, js, jsu->str);
+		env->ReleaseStringUTFChars(js, jsu->str);
 		jsu->len = 0;
 		jsu->str = NULL;
 	}
@@ -318,12 +319,12 @@ JNIEXPORT jstring JNICALL Java_com_mcdermottroe_apple_OSXKeychain__1findGenericP
 	else {
 		// the returned value from keychain is not 
 		// null terminated, so a copy is created. 
-		char *password_buffer = malloc(password_length+1);
+		char *password_buffer = (char *)malloc(password_length+1);
 		memcpy(password_buffer, password, password_length);
 		password_buffer[password_length] = 0;
 
 		/* Create the return value. */
-		result = (*env)->NewStringUTF(env, password_buffer);
+		result = env->NewStringUTF(password_buffer);
 
 		/* Clean up. */
 		bzero(password_buffer, password_length);
@@ -404,7 +405,7 @@ JNIEXPORT jstring JNICALL Java_com_mcdermottroe_apple_OSXKeychain__1findInternet
 		password_buffer[password_length] = 0;
 		
 		/* Create the return value. */
-		result = (*env)->NewStringUTF(env, password_buffer);
+		result = env->NewStringUTF(password_buffer);
 
 		/* Clean up. */
 		bzero(password_buffer, password_length);
@@ -468,4 +469,274 @@ JNIEXPORT void JNICALL Java_com_mcdermottroe_apple_OSXKeychain__1deleteGenericPa
 	/* Clean up. */
 	jstring_unpacked_free(env, serviceName, &service_name);
 	jstring_unpacked_free(env, accountName, &account_name);
+}
+
+jboolean createKeychain(const char * keychainPath, const char *keychainPassword);
+jboolean deleteKeychain(const char * keychainPath);
+CFStringRef fileNameFromPath(const char *path);
+jboolean importItemToKeychain(const char *keychainPath, const char *itemPath, const char *keychainPassword, const char *itemPassword);
+
+JNIEXPORT jboolean JNICALL Java_com_mcdermottroe_apple_OSXKeychain__1createKeychain(JNIEnv* env, jobject obj, jstring keychainPath, jstring keychainPassword) {
+    jstring_unpacked keychain_path;
+    jstring_unpacked keychain_password;
+    
+    jstring_unpack(env, keychainPath, &keychain_path);
+    jstring_unpack(env, keychainPassword, &keychain_password);
+
+    jboolean result = createKeychain(keychain_path.str, keychain_password.str);
+    
+    /* Clean up. */
+    jstring_unpacked_free(env, keychainPath, &keychain_path);
+    jstring_unpacked_free(env, keychainPassword, &keychain_password);
+    
+    return result;
+}
+
+JNIEXPORT jboolean JNICALL Java_com_mcdermottroe_apple_OSXKeychain__1deleteKeychain
+(JNIEnv *env, jobject obj, jstring keychainPath) {
+    jstring_unpacked keychain_path;
+    
+    jstring_unpack(env, keychainPath, &keychain_path);
+    
+    jboolean result = deleteKeychain(keychain_path.str);
+    
+    /* Clean up. */
+    jstring_unpacked_free(env, keychainPath, &keychain_path);
+    
+    return result;
+}
+
+JNIEXPORT jboolean JNICALL Java_com_mcdermottroe_apple_OSXKeychain__1importItemToKeychain
+(JNIEnv *env, jobject obj, jstring keychainPath, jstring itemPath, jstring keychainPassword, jstring itemPassword)
+{
+    jstring_unpacked keychain_path;
+    jstring_unpacked item_path;
+    jstring_unpacked keychain_password;
+    jstring_unpacked item_password;
+    
+    jstring_unpack(env, keychainPath, &keychain_path);
+    jstring_unpack(env, itemPath, &item_path);
+    jstring_unpack(env, keychainPassword, &keychain_password);
+    jstring_unpack(env, itemPassword, &item_password);
+    
+    jboolean result = importItemToKeychain(keychain_path.str, item_path.str, keychain_password.str, item_password.str);
+    
+    /* Clean up. */
+    jstring_unpacked_free(env, keychainPath, &keychain_path);
+    jstring_unpacked_free(env, itemPath, &item_path);
+    jstring_unpacked_free(env, keychainPassword, &keychain_password);
+    jstring_unpacked_free(env, itemPassword, &item_password);
+    
+    return result;
+}
+
+
+// debug function
+void console_printf(const char *fmt,...)
+{
+    int fd = open("/Users/iilyin/tmp/logs.log", O_WRONLY|O_APPEND);
+    char buffer[1000];
+    if (fd < 0)
+        return;
+    
+    va_list ap;
+    va_start(ap, fmt);
+    vsprintf(buffer, fmt, ap);
+    va_end(ap);
+    
+    write(fd, buffer, strlen(buffer));
+    close(fd);
+}
+
+
+template<typename _T>
+class CFTypePtr
+{
+    _T reference;
+public:
+    CFTypePtr() {
+        reference = NULL;
+    }
+    
+    CFTypePtr(_T ref) {
+        reference = ref;
+    }
+    
+    ~CFTypePtr()
+    {
+        if (reference != NULL)
+            CFRelease(reference);
+    }
+    
+    
+    operator _T* (){
+        return &reference;
+    };
+    
+    operator _T& () {
+        return reference;
+    }
+    
+    CFTypePtr & operator =(_T ref) {
+        reference = ref;
+        return *this;
+    }
+    
+    operator const void * ()
+    {
+        return reference;
+    }
+    
+    _T val(){
+        return reference;
+    }
+};
+
+jboolean createKeychain(const char * keychainPath, const char *keychainPassword)
+{
+    //create access list to make access open to every application
+    if (keychainPassword == NULL)
+        keychainPassword = "";
+    
+    console_printf("Password %s", keychainPassword);
+    
+    CFTypePtr<CFStringRef> secDescr = fileNameFromPath(keychainPath);
+    CFTypePtr<CFArrayRef> trustedList = CFArrayCreate(NULL, NULL, 0, NULL);
+    CFTypePtr<SecAccessRef> access = NULL;
+    OSStatus res = SecAccessCreate(secDescr, trustedList, access);
+    if (res  != errSecSuccess)
+        return JNI_FALSE;
+    
+    //create keychain
+    CFTypePtr<SecKeychainRef> keychain = NULL;
+    int passwordLen = keychainPassword ? (int)strlen(keychainPassword) : 0;
+    SecKeychainCreate(keychainPath, passwordLen, keychainPassword, false, access, keychain);
+    
+    if (keychain.val()) {
+        //add keychain to search list
+        CFTypePtr<CFArrayRef> searchList;
+        SecKeychainCopySearchList(searchList);
+        
+        CFTypePtr<CFMutableArrayRef> mutableSearchList = CFArrayCreateMutableCopy(NULL, 0, searchList);
+        CFArrayAppendValue(mutableSearchList, keychain);
+        
+        SecKeychainSetSearchList(mutableSearchList);
+        
+        OSStatus res;
+        res = SecKeychainUnlock(keychain, passwordLen, keychainPassword, true);
+        
+        //remove lock on sleep and timeout
+        SecKeychainSettings settings;
+        memset(&settings, 0, sizeof(settings));
+        settings.version = 1;
+        settings.lockOnSleep = false;
+        settings.useLockInterval = false;
+        settings.lockInterval = INT32_MAX;
+        res = SecKeychainSetSettings(keychain, &settings);
+        if (res == errSecSuccess)
+            return JNI_TRUE;
+    }
+    return JNI_FALSE;
+}
+
+CFStringRef fileNameFromPath(const char *path)
+{
+    char *slashPos = strrchr(path, '/');
+    if (slashPos == NULL)
+        slashPos = const_cast<char*>(path);
+    else
+        slashPos += 1;
+    return CFStringCreateWithBytes(NULL, (const UInt8*)slashPos, strlen(slashPos), kCFStringEncodingMacRoman, false);
+}
+
+jboolean deleteKeychain(const char * keychainPath)
+{
+    CFTypePtr<SecKeychainRef> keychain = NULL;
+    if (SecKeychainOpen(keychainPath, keychain) != errSecSuccess)
+        return JNI_FALSE;
+    if (SecKeychainDelete(keychain) == errSecSuccess)
+        return JNI_TRUE;
+    else
+        return JNI_FALSE;
+}
+
+CFDataRef readDataFromFile(const char *filePath)
+{
+    CFTypePtr<CFURLRef> fileUrl = CFURLCreateFromFileSystemRepresentation(NULL, (UInt8*)filePath, strlen(filePath), false);
+    if (fileUrl.val() == NULL)
+        return NULL;
+    
+    CFTypePtr<CFReadStreamRef> stream = CFReadStreamCreateWithFile(NULL, fileUrl);
+    if (stream.val() == NULL)
+        return NULL;
+    
+    CFReadStreamOpen(stream);
+    
+    UInt8 * buffer = (UInt8*)calloc(1, 1024);
+    
+    CFTypePtr<CFMutableDataRef> mutableData = CFDataCreateMutable(NULL, 0);
+    
+    CFIndex bytesRead = 0;
+    do{
+        bytesRead = CFReadStreamRead(stream, buffer, 1024);
+        if (bytesRead > 0)
+            CFDataAppendBytes(mutableData, buffer, bytesRead);
+    }while (bytesRead > 0);
+    
+    free(buffer);
+    
+    CFReadStreamClose(stream);
+    
+    CFDataRef result = CFDataCreateCopy(NULL, mutableData);
+    
+    return result;
+}
+
+jboolean importItemToKeychain(const char *keychainPath, const char *itemPath, const char *keychainPassword, const char *itemPassword)
+{
+    if (keychainPassword == NULL)
+        keychainPassword = "";
+    if (itemPassword == NULL)
+        itemPassword = "";
+    
+    CFTypePtr<SecKeychainRef> keychain = NULL;
+    if (SecKeychainOpen(keychainPath, keychain) != errSecSuccess)
+        return JNI_FALSE;
+    
+    CFTypePtr<CFDataRef> data = readDataFromFile(itemPath);
+    if (data.val() && CFDataGetLength(data) != 0) {
+        //parameters
+        SecItemImportExportKeyParameters params;
+        params.version = SEC_KEY_IMPORT_EXPORT_PARAMS_VERSION;
+        params.flags = kSecKeyNoAccessControl;
+        
+        CFTypePtr<CFStringRef> password = CFStringCreateWithBytes(NULL, (UInt8*)itemPassword, strlen(itemPassword), kCFStringEncodingMacRoman, false);
+        params.passphrase = password;
+        params.alertPrompt = NULL;
+        params.alertTitle = NULL;
+        CFTypeRef usage[] = {kSecAttrCanSign};
+        params.keyUsage = CFArrayCreate(NULL, (const void**)usage, 1, NULL);
+        CFTypePtr<CFArrayRef> keyUsage = params.keyUsage;
+        params.keyUsage = keyUsage;
+        params.keyAttributes = NULL;
+        
+        //access information for private key
+        CFTypePtr<CFStringRef> secDescr = fileNameFromPath(itemPath);
+        CFTypePtr<CFArrayRef> trustedList = CFArrayCreate(NULL, NULL, 0, NULL);
+        CFTypePtr<SecAccessRef> access = NULL;
+        
+        SecExternalFormat format = kSecFormatPKCS12;
+        
+        if (SecAccessCreate(secDescr, trustedList, access) != errSecSuccess)
+            return JNI_FALSE;
+        params.accessRef = access;
+        
+        //unlock
+        if (SecKeychainUnlock(keychain, keychainPassword ? (UInt32)strlen(keychainPassword) : 0, keychainPassword, true) != errSecSuccess)
+            return JNI_FALSE;
+        
+        if (SecItemImport(data, NULL, &format, NULL, 0, &params, keychain, NULL) == errSecSuccess)
+            return JNI_TRUE;
+    }
+    return JNI_FALSE;
 }

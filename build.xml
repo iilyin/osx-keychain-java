@@ -41,12 +41,12 @@
 		</javah>
 	</target>
 	<target name="build-c" depends="build-dest,build-javah">
-		<exec executable="gcc" dir="src/c">
+		<exec executable="g++" dir="src/c">
 		    <arg value="-arch" />
 		    <arg value="i386" />
 		    <arg value="-arch" />
 		    <arg value="x86_64" />
-		    <arg value="-mmacosx-version-min=10.5" />
+		    <arg value="-mmacosx-version-min=10.10" />
 			<arg value="-dynamiclib" />
 			<arg value="-framework" />
 			<arg value="CoreFoundation" />
@@ -56,12 +56,16 @@
 			<arg value="Security" />
 			<arg value="-I" />
 			<arg value="/System/Library/Frameworks/JavaVM.framework/Versions/Current/Headers" />
-			<arg value="-std=c99" />
+            <arg value="-I" />
+            <arg value="/Library/Java/JavaVirtualMachines/jdk1.7.0_75.jdk/Contents/Home/include/" />
+            <arg value="-I" />
+            <arg value="/Library/Java/JavaVirtualMachines/jdk1.7.0_75.jdk/Contents/Home/include/darwin/" />
+			<arg value="-std=c++11" />
 			<arg value="-pedantic" />
 			<arg value="-Wall" />
 			<arg value="-o" />
 			<arg value="${basedir}/lib/com/mcdermottroe/apple/osxkeychain.so" />
-			<arg value="com_mcdermottroe_apple_OSXKeychain.c" />
+			<arg value="com_mcdermottroe_apple_OSXKeychain.cpp" />
 		</exec>
 	</target>
 
@@ -79,7 +83,7 @@
 		    <arg value="i386" />
 		    <arg value="-arch" />
 		    <arg value="x86_64" />
-		    <arg value="-mmacosx-version-min=10.5" />
+		    <arg value="-mmacosx-version-min=10.10" />
 			<arg value="-framework" />
 			<arg value="Security" />
 			<arg value="-std=c99" />
